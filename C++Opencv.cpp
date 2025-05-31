@@ -1,4 +1,5 @@
 ﻿#include <opencv2/opencv.hpp>
+#include <cmath>
 #include <vector>
 #include <sstream>
 #include <iostream>
@@ -6,6 +7,41 @@
 using namespace cv;
 using namespace std;
 
+void find_red(Mat resizedImg, Mat& redImg) {
+    Mat HSVImg;
+    cvtColor(resizedImg, HSVImg, COLOR_BGR2HSV);//转换为HSV色彩空间
+    // 定义颜色范围（这里以提取红色为例）
+    Scalar lower_red1(0, 60, 150);    // HSV下限1
+    Scalar upper_red1(10, 255, 255);  // HSV上限1
+    Scalar lower_red2(170, 60, 150);   // HSV下限2（红色在HSV中跨越0°和180°）
+    Scalar upper_red2(180, 255, 255); // HSV上限2
+    Mat mask1, mask2, redMask;
+    inRange(HSVImg, lower_red1, upper_red1, mask1);
+    inRange(HSVImg, lower_red2, upper_red2, mask2);
+    bitwise_or(mask1, mask2, redMask); // 合并两个范围的掩码
+    // 应用掩码提取红色区域
+    bitwise_and(resizedImg, resizedImg, redImg, redMask);
+}
+void preprocess_image(string imgPath, Mat& grayImg, Mat& resizedImg, Mat& crt) {
+    // 读取图片
+    Mat img = imread(imgPath);  // 替换为你的图片路径
+    if (img.empty()) {
+        cout << "图片加载失败！" << endl;
+        return ;
+    }
+    //图片处理
+    Mat bulurredImg;
+    GaussianBlur(img, bulurredImg, Size(5, 5), 1);//高斯模糊
+    resize(bulurredImg, resizedImg, Size(500, 500));//调整大小
+    Mat redImg;
+    find_red(resizedImg, redImg); // 提取红色区域
+    cvtColor(redImg, grayImg, COLOR_BGR2GRAY);//转换为灰度图
+    Mat binaryOriginalImg;
+    int a = 100;
+    int b = 300;
+    Canny(resizedImg, binaryOriginalImg, a, b);//边缘检测
+    threshold(grayImg, crt, 0, 255, THRESH_BINARY | THRESH_OTSU); // Otsu's 二值化
+}
 void display_info(Mat img) {
     //显示文本
     string  text = "Hello OpenCV!";// 文本内容
@@ -40,59 +76,124 @@ void display_info(Mat img) {
         putText(img, infoLines[i], Point(20, 20 + i * Height), fontFace, fontscale, color, thickness);
     }
 }
-void find_red(Mat resizedImg,Mat& redImg){
-    Mat HSVImg;
-    cvtColor(resizedImg, HSVImg, COLOR_BGR2HSV);//转换为HSV色彩空间
-    // 定义颜色范围（这里以提取红色为例）
-    Scalar lower_red1(0, 60, 150);    // HSV下限1
-    Scalar upper_red1(10, 255, 255);  // HSV上限1
-    Scalar lower_red2(170, 60, 150);   // HSV下限2（红色在HSV中跨越0°和180°）
-    Scalar upper_red2(180, 255, 255); // HSV上限2
-    Mat mask1, mask2, redMask;
-    inRange(HSVImg, lower_red1, upper_red1, mask1);
-    inRange(HSVImg, lower_red2, upper_red2, mask2);
-    bitwise_or(mask1, mask2, redMask); // 合并两个范围的掩码
-    // 应用掩码提取红色区域
-    bitwise_and(resizedImg, resizedImg, redImg, redMask);
+void find_target(Mat& resizedImg,Mat& crt,vector<Point>& tergets) {
+    //直线检测与绘制
+    vector<Vec4i> detected_lines;
+    HoughLinesP(crt, detected_lines, 1, CV_PI / 180, 20, 10, 4);
+    /*
+    for (size_t i = 0; i < detected_lines.size(); i++) {
+        Vec4i l = detected_lines[i];
+        line(resizedImg, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 255, 0), 2, LINE_AA); // 绘制检测到的直线
+    }
+    */
+	//合并接近的直线
+	vector<Vec4i> merged_lines;
+	vector<int> merged_indices; // 用于存储已合并的直线索引
+    for (int i = 0;i < detected_lines.size();i++) {
+		// 检查当前直线是否已被合并
+		if (find(merged_indices.begin(), merged_indices.end(), i) != merged_indices.end()) {
+			continue; // 如果已合并，则跳过
+		}
+		// 否则，开始合并过程
+		int isMerged = 0; // 标记是否已合并
+        for (int j = i + 1;j < detected_lines.size();j++) {
+            Vec4i l = detected_lines[i];
+            Vec4i m = detected_lines[j];
+            double midX1 = (l[0] + l[2]) / 2.0; // 直线l的中点X坐标
+            double midY1 = (l[1] + l[3]) / 2.0; // 直线l的中点Y坐标
+            double midX2 = (m[0] + m[2]) / 2.0; // 直线m的中点X坐标
+            double midY2 = (m[1] + m[3]) / 2.0; // 直线m的中点Y坐标
+            double distance = sqrt(pow(midX2 - midX1, 2) + pow(midY2 - midY1, 2)); // 计算中点间距离
+			// 计算斜率
+			double tan_l = atan2(l[3] - l[1], l[2] - l[0]);
+			double tan_m = atan2(m[3] - m[1], m[2] - m[0]);
+            // 如果距离和斜率相似，则合并这两条直线
+			if (distance < 5 && tan_l - tan_m < 0.1) {
+				// 计算合并后的直线端点
+				int x1 = min(l[0], m[0]);
+				int y1 = min(l[1], m[1]);
+				int x2 = max(l[2], m[2]);
+				int y2 = max(l[3], m[3]);
+				Vec4i merged_line(x1, y1, x2, y2);
+				merged_lines.push_back(merged_line);
+				isMerged = 1; // 标记已合并
+				merged_indices.push_back(j); // 添加已合并的直线索引
+			}
+        }
+		// 如果当前直线没有被合并，则添加到合并后的直线列表中
+		if (!isMerged) {
+			merged_lines.push_back(detected_lines[i]);
+		}
+    }
+    /*
+    for (size_t i = 0; i < merged_lines.size(); i++) {
+        Vec4i l = merged_lines[i];
+        line(resizedImg, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(255, 0, 0), 2, LINE_AA); // 绘制检测到的直线
+    }
+    */
+    //选择接近垂直的直线
+    vector<Vec4i> vertical_lines;
+    for (size_t i = 0; i < merged_lines.size(); i++) {
+        Vec4i l = merged_lines[i];
+        double angle = atan2(l[3] - l[1], l[2] - l[0]) * 180 / CV_PI; // 计算直线的角度
+        if (abs(angle) < 100 && abs(angle) > 80) { // 接近垂直的直线
+            vertical_lines.push_back(l);
+        }
+    }
+    for (size_t i = 0; i < vertical_lines.size(); i++) {
+        Vec4i l = vertical_lines[i];
+        line(resizedImg, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 255, 255), 2, LINE_AA); // 绘制检测到的直线
+    }
+	int targetCount = 0; // 目标计数
+    int lineCount = vertical_lines.size();
+    for (int i = 0;i < lineCount;i++) {
+        for (int j = i + 1;j < lineCount;j++) {
+            Vec4i l = vertical_lines[i];
+            Vec4i m = vertical_lines[j];
+            double midX1 = (l[0] + l[2]) / 2.0; // 直线l的中点X坐标
+            double midY1 = (l[1] + l[3]) / 2.0; // 直线l的中点Y坐标
+            double midX2 = (m[0] + m[2]) / 2.0; // 直线m的中点X坐标
+            double midY2 = (m[1] + m[3]) / 2.0; // 直线m的中点Y坐标
+            double distance = sqrt(pow(midX2 - midX1, 2) + pow(midY2 - midY1, 2)); // 计算中点间距离
+            double rangemin = sqrt(pow(l[0] - l[2], 2) + pow(l[1] - l[3], 2)) * 2 - 10;
+            double rangemax = sqrt(pow(l[0] - l[2], 2) + pow(l[1] - l[3], 2)) * 2 + 10;
+            if (distance < rangemax && distance >rangemin) { // 如果距离小于阈值，则连接这两条直线的中点
+                Point midPoint1(midX1, midY1);
+                Point midPoint2(midX2, midY2);
+                //line(resizedImg, midPoint1, midPoint2, Scalar(0, 255, 255), 2, LINE_AA); // 绘制连接线
+                Point aimPoint((midX1 + midX2) / 2, (midY1 + midY2) / 2);
+                int size = 10; // 线段长度
+				line(resizedImg, Point(aimPoint.x - size, aimPoint.y + size), Point(aimPoint.x + size, aimPoint.y - size), Scalar(0, 0, 255), 2, LINE_AA);// 绘制十字线
+                line(resizedImg, Point(aimPoint.x - size, aimPoint.y - size), Point(aimPoint.x + size, aimPoint.y + size), Scalar(0, 0, 255), 2, LINE_AA);
+				putText(resizedImg, "terget" + to_string(++targetCount), Point(aimPoint.x - 25, aimPoint.y + 20), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1); // 在目标点旁边标记编号
+				tergets.push_back(aimPoint); // 将目标点添加到结果向量中
+            }
+        }
+    }
+}
+void front_sight(Mat& resizedImg,vector<Point> targets) {
+	int centerX = resizedImg.cols / 2; // 图像中心X坐标
+	int centerY = resizedImg.rows / 2; // 图像中心Y坐标
+	int size = 10; // 十字线长度
+	line(resizedImg, Point(centerX - size, centerY + size), Point(centerX + size, centerY - size), Scalar(255, 255, 255), 2, LINE_AA); // 绘制十字线
+	line(resizedImg, Point(centerX - size, centerY - size), Point(centerX + size, centerY + size), Scalar(255, 255, 255), 2, LINE_AA);
+	for (const auto& target : targets) {
+		line(resizedImg, target, Point(centerX, centerY), Scalar(155, 155, 155), 2, LINE_AA); // 绘制目标点十字线
+	}
 }
 
 int main() {
-    // 读取图片
-    Mat img = imread("Resources/rmARMR.jpg");  // 替换为你的图片路径
-    if (img.empty()) {
-        cout << "图片加载失败！" << endl;
-        return -1;
-    }
-    //图片处理
-    Mat bulurredImg;
-    GaussianBlur(img, bulurredImg, Size(5, 5), 1);//高斯模糊
-    Mat resizedImg;
-	resize(bulurredImg, resizedImg, Size(500, 500));//调整大小
-	Mat redImg;
-	find_red(resizedImg, redImg); // 提取红色区域
-    Mat grayImg;
-    cvtColor(redImg, grayImg, COLOR_BGR2GRAY);//转换为灰度图
-    Mat binaryOriginalImg;
-    int a = 100;
-    int b = 300;
-	Canny(resizedImg, binaryOriginalImg, a, b);//边缘检测
-	//二值化处理
-    Mat crt;
-	threshold(grayImg, crt, 0, 255, THRESH_BINARY | THRESH_OTSU); // Otsu's 二值化
-
-    //直线检测
-    vector<Vec4i> lines;
-    HoughLinesP(crt, lines, 1, CV_PI / 180, 20, 10, 4);
-	for (size_t i = 0; i < lines.size(); i++) {
-		Vec4i l = lines[i];
-		line(resizedImg, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 255, 0), 2, LINE_AA); // 绘制检测到的直线
-	}
-
+    // 预处理图像
+	Mat grayImg, resizedImg, crt;
+	preprocess_image("Resources/rmTest.jpg", grayImg, resizedImg, crt); // 替换为你的图片路径
+    vector<Point> targets;
+	find_target(resizedImg, crt, targets); // 查找目标并绘制
+	front_sight(resizedImg, targets); // 绘制准星
     //显示图片
     display_info(grayImg);
 	imshow("originalImage", resizedImg);
 	imshow("binaryImage", crt);
-	imshow("binaryOriginalImage", binaryOriginalImg);
+	imshow("grayImage", grayImg);
 
     waitKey(0);  // 按任意键关闭窗口
 
