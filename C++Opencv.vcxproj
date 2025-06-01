@@ -133,6 +133,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="C++Opencv.cpp" />
+    <ClCompile Include="ImgProcessor.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ImgProcessor.h" />
+    <ClInclude Include="MyTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

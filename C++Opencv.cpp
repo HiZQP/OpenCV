@@ -3,11 +3,13 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include "ImgProcessor.h"
 
 using namespace cv;
-using namespace std;
+using namespace std; 
 //颜色检测严重依赖相机质量，不同相机对于相同颜色的HSV范围差异天壤之别
-//rmTest和rmTest1的拍摄相机不同，两者的HSV范围完全不能通用
+//rmTest和rmTest1的拍摄相机不同，两者的HSV范围几乎完全不能通用
+/* 这是旧的颜色检测函数，请使用类ImgProcessor中的HSV过滤函数
 void find_red(Mat resizedImg, Mat& redImg) {
     Mat HSVImg;
     cvtColor(resizedImg, HSVImg, COLOR_BGR2HSV);//转换为HSV色彩空间
@@ -23,29 +25,19 @@ void find_red(Mat resizedImg, Mat& redImg) {
     // 应用掩码提取红色区域
     bitwise_and(resizedImg, resizedImg, redImg, redMask);
 }
-void preprocess_image(string imgPath, Mat& grayImg, Mat& resizedImg, Mat& crt) {
-    // 读取图片
-    Mat img = imread(imgPath);  // 替换为你的图片路径
-    if (img.empty()) {
-        cout << "图片加载失败！" << endl;
-        return ;
-    }
-    //图片处理
-    Mat bulurredImg;
-    GaussianBlur(img, bulurredImg, Size(13, 21), 1);//高斯模糊
-    resize(bulurredImg, resizedImg, Size(500, 500));//调整大小
-    Mat redImg;
-    find_red(resizedImg, redImg); // 提取红色区域
-    cvtColor(redImg, grayImg, COLOR_BGR2GRAY);//转换为灰度图
-	//去除孤立小点
-	Mat betterImg;
-    morphologyEx(grayImg, betterImg, cv::MORPH_OPEN, 2);
-	//二值化处理
-    int a = 100;
-    int b = 300;
-    //Canny(resizedImg, binaryOriginalImg, a, b);//边缘检测
-    threshold(betterImg, crt, 0, 255, THRESH_BINARY | THRESH_OTSU); // Otsu's 二值化
+void find_numberColor(Mat resizedImg, Mat& redImg) {
+    Mat HSVImg;
+    cvtColor(resizedImg, HSVImg, COLOR_BGR2HSV);//转换为HSV色彩空间
+    // 定义颜色范围 H:色相 S:饱和度 V:亮度（这里以提取红色为例）
+    Scalar lower_red1(80, 0, 0);    // HSV下限1
+    Scalar upper_red1(180, 45, 255);  // HSV上限1
+    Mat mask1, mask2, redMask;
+    inRange(HSVImg, lower_red1, upper_red1, mask1);
+    // 应用掩码提取红色区域
+    bitwise_and(resizedImg, resizedImg, redImg, mask1);
 }
+*/
+// 显示图片信息 (信息处理/绘制 输入/输出)
 void display_info(Mat img) {
     //显示文本
     string  text = "Hello OpenCV!";// 文本内容
@@ -80,6 +72,7 @@ void display_info(Mat img) {
         putText(img, infoLines[i], Point(20, 20 + i * Height), fontFace, fontscale, color, thickness);
     }
 }
+// 查找目标并绘制 (信息绘制输出， 信息处理输入（二值图）， 目标输出（点向量）)
 void find_target(Mat& resizedImg, Mat& binaryImg, vector<Point>& targets) {
     vector<vector<Point>> contours;
 	vector<vector<Point>> somethingLikeTargetContours;
@@ -119,6 +112,7 @@ void find_target(Mat& resizedImg, Mat& binaryImg, vector<Point>& targets) {
         }
 	}
 }
+// 绘制准星 (信息处理输入，目标输入（点向量）)
 void front_sight(Mat& resizedImg,vector<Point> targets) {
 	int centerX = resizedImg.cols / 2; // 图像中心X坐标
 	int centerY = resizedImg.rows / 2; // 图像中心Y坐标
@@ -129,14 +123,19 @@ void front_sight(Mat& resizedImg,vector<Point> targets) {
 		line(resizedImg, target, Point(centerX, centerY), Scalar(155, 155, 155), 2, LINE_AA); // 绘制目标点十字线
 	}
 }
+
 int main() {
+
     // 预处理图像
-	Mat grayImg, resizedImg, binaryImg;
-	preprocess_image("Resources/rmTest1.jpg", grayImg, resizedImg, binaryImg); // 替换为你的图片路径
+	ImgProcessor preprocessor1("Resources/rmTest1.jpg", 500, 500); // 替换为你的图片路径
+	Mat grayImg = preprocessor1.preprocess_image(ImgProcessor::GRAY_IMG);
+	Mat resizedImg = preprocessor1.preprocess_image();
+	Mat binaryImg = preprocessor1.preprocess_image(ImgProcessor::BINARY_IMG);
+    
     vector<Point> targets;
-    find_target(resizedImg, binaryImg, targets); // 查找目标并绘制
+    //find_target(resizedImg, binaryImg, targets); // 查找目标并绘制
 	front_sight(resizedImg, targets); // 绘制准星
-	imwrite("Output/processedImage.jpg", resizedImg); // 保存处理后的图像
+	//imwrite("Output/processedImage.jpg", resizedImg); // 保存处理后的图像
     
     //显示图片
     display_info(grayImg);

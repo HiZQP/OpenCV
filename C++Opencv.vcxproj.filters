@@ -18,5 +18,16 @@
     <ClCompile Include="C++Opencv.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ImgProcessor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ImgProcessor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyTypes.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
