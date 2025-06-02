@@ -7,6 +7,7 @@
 struct HSVRanges {
 	cv::Scalar lower; // HSV下限
 	cv::Scalar upper; // HSV上限
+	HSVRanges(cv::Scalar l, cv::Scalar u) : lower(l), upper(u) {} // 构造函数
 };
 
 #endif // !MY_TYPES_H

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include "ImgProcessor.h"
+#include "MyTypes.h"
 
 using namespace cv;
 using namespace std; 
@@ -127,21 +128,28 @@ void front_sight(Mat& resizedImg,vector<Point> targets) {
 int main() {
 
     // 预处理图像
-	ImgProcessor preprocessor1("Resources/rmTest1.jpg", 500, 500); // 替换为你的图片路径
-	Mat grayImg = preprocessor1.preprocess_image(ImgProcessor::GRAY_IMG);
-	Mat resizedImg = preprocessor1.preprocess_image();
-	Mat binaryImg = preprocessor1.preprocess_image(ImgProcessor::BINARY_IMG);
-    
+    //(图片路径输入，缩放尺寸x输入，缩放尺寸y输入 )
+	ImgProcessor preprocessor1("Resources/rmTest1.jpg", 500, 500);
+    Mat grayImg = preprocessor1.grayImg;
+    Mat resizedImg = preprocessor1.resizedImg;
+    Mat binaryImg = preprocessor1.binaryImg;
+
+    HSVRanges redRange1(Scalar(0, 0, 180), Scalar(40, 120, 255)); // 定义红色HSV范围
+    HSVRanges redRange2(Scalar(160, 0, 180), Scalar(180, 120, 255));
+    HSVRanges blueRange(Scalar(80, 0, 0), Scalar(180, 45, 255)); // 定义蓝色HSV范围
+	vector<HSVRanges> redRanges = { redRange1, redRange2 }; // 将红色范围放入向量中
+	preprocessor1.preprocess_image(ImgProcessor::HSV_FILTERED_IMG, redRanges); // 使用HSV过滤函数
+
     vector<Point> targets;
-    //find_target(resizedImg, binaryImg, targets); // 查找目标并绘制
+    find_target(resizedImg, preprocessor1.filteredBinaryImg, targets); // 查找目标并绘制
 	front_sight(resizedImg, targets); // 绘制准星
 	//imwrite("Output/processedImage.jpg", resizedImg); // 保存处理后的图像
     
     //显示图片
-    display_info(grayImg);
+    //display_info(grayImg);
 	imshow("originalImage", resizedImg);
 	imshow("binaryImage", binaryImg);
-
+	imshow("redFilteredImage", preprocessor1.filteredBinaryImg); // 显示红色过滤后的图像
     waitKey(0);  // 按任意键关闭窗口
 
     return 0;

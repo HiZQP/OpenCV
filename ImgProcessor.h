@@ -29,10 +29,11 @@ class ImgProcessor {
 private:
 
 	std::string imgPath; // 图片路径
-	cv::Mat originalImg; // 原始图像
 	int size_x, size_y; // 图像尺寸
 
 public:
+
+	cv::Mat resizedImg, grayImg, binaryImg, originalImg, filteredImg, filteredBinaryImg; // 处理后的图像
 
 	static enum IMG_TYPE {
 		RESIZED_IMG = 0, // 缩放后的图像
@@ -43,6 +44,9 @@ public:
 
 	ImgProcessor(const std::string path, const int size_x, const int size_y) : imgPath(path), size_x(size_x), size_y(size_y){
 		originalImg = cv::imread(imgPath); // 读取图片
+		resizedImg = preprocess_image();
+		grayImg = preprocess_image(GRAY_IMG);
+		binaryImg = preprocess_image(BINARY_IMG);
 	}
 	~ImgProcessor() {}
 
@@ -53,11 +57,29 @@ public:
 		}
 		switch (type) {
 		case HSV_FILTERED_IMG: {
-			cv::Mat hsvFilteredImg = originalImg.clone();
+			cv::Mat HSVImg;
+			cvtColor(resizedImg, HSVImg, cv::COLOR_BGR2HSV);//转换为HSV色彩空间
+			cv::Mat range_all; // 用于存储合并后的掩码
+			std::vector<cv::Mat> masks; // 创建一个掩码向量，大小与HSV范围数量相同
 			for (const auto& range : hsvRanges) {
-				cv::inRange(originalImg, range.lower, range.upper, hsvFilteredImg); // 应用HSV范围过滤
+				cv::Mat mask;
+				cv::inRange(HSVImg, range.lower, range.upper, mask); // 创建掩码
+				masks.push_back(mask); // 将掩码添加到向量中
 			}
-			return hsvFilteredImg;
+			for (size_t i = 0; i < masks.size(); i++) {
+				if (i == 0) {
+					range_all = masks[i]; // 初始化合并掩码
+				}
+				else {
+					cv::bitwise_or(range_all, masks[i], range_all); // 合并掩码
+				}
+			}
+
+			cv::bitwise_and(resizedImg, resizedImg, filteredImg, range_all); // 应用掩码提取颜色区域
+			cv::cvtColor(filteredImg, filteredImg, cv::COLOR_BGR2GRAY); // 转换为灰度图像
+			//二值化
+			cv::threshold(filteredImg, filteredBinaryImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU); // Otsu's 二值化
+			return filteredBinaryImg; // 返回过滤后的图像
 		}
 		default:
 			std::cout << "未知类型！" << std::endl; 
@@ -98,5 +120,6 @@ public:
 	cv::Mat preprocess_image() {
 		return preprocess_image(RESIZED_IMG); // 默认返回缩放后的图像
 	}
+
 };
 
