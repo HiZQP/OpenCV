@@ -139,6 +139,10 @@
     <ClInclude Include="ImgProcessor.h" />
     <ClInclude Include="MyTypes.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\rmTest.jpg" />
+    <Image Include="Resources\rmTest1.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

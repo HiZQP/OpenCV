@@ -117,12 +117,11 @@ void find_target(Mat& resizedImg, Mat& binaryImg, vector<Point>& targets) {
 void front_sight(Mat& resizedImg,vector<Point> targets) {
 	int centerX = resizedImg.cols / 2; // 图像中心X坐标
 	int centerY = resizedImg.rows / 2; // 图像中心Y坐标
-	int size = 10; // 十字线长度
-	line(resizedImg, Point(centerX, centerY + size), Point(centerX, centerY - size), Scalar(255, 255, 255), 2, LINE_AA); // 绘制十字线
-	line(resizedImg, Point(centerX - size, centerY), Point(centerX + size, centerY), Scalar(255, 255, 255), 2, LINE_AA);
 	for (const auto& target : targets) {
 		line(resizedImg, target, Point(centerX, centerY), Scalar(155, 155, 155), 2, LINE_AA); // 绘制目标点十字线
 	}
+    int size = 18; // 十字线长度
+    circle(resizedImg, Point(centerX, centerY), size, Scalar(0, 255, 0), 1, LINE_AA); // 绘制中心圆
 }
 
 int main() {
@@ -134,8 +133,10 @@ int main() {
     Mat resizedImg = preprocessor1.resizedImg;
     Mat binaryImg = preprocessor1.binaryImg;
 
-    HSVRanges redRange1(Scalar(0, 0, 180), Scalar(40, 120, 255)); // 定义红色HSV范围
-    HSVRanges redRange2(Scalar(160, 0, 180), Scalar(180, 120, 255));
+	// 目前发现HSV亮度下限与图片整体亮度相关，用函数将两者拟合可以提高颜色过滤的准确性
+    HSVRanges redRange1(Scalar(0, 0, 200), Scalar(20, 255, 255)); // 定义红色HSV范围
+    HSVRanges redRange2(Scalar(170, 0, 200), Scalar(180, 255, 255));
+
     HSVRanges blueRange(Scalar(80, 0, 0), Scalar(180, 45, 255)); // 定义蓝色HSV范围
 	vector<HSVRanges> redRanges = { redRange1, redRange2 }; // 将红色范围放入向量中
 	preprocessor1.preprocess_image(ImgProcessor::HSV_FILTERED_IMG, redRanges); // 使用HSV过滤函数
@@ -146,7 +147,7 @@ int main() {
 	//imwrite("Output/processedImage.jpg", resizedImg); // 保存处理后的图像
     
     //显示图片
-    //display_info(grayImg);
+    display_info(resizedImg);
 	imshow("originalImage", resizedImg);
 	imshow("binaryImage", binaryImg);
 	imshow("redFilteredImage", preprocessor1.filteredBinaryImg); // 显示红色过滤后的图像
