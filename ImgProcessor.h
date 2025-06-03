@@ -27,26 +27,31 @@
 #pragma once
 class ImgProcessor {
 private:
-
 	std::string imgPath; // 图片路径
+	int HSVDynamic(cv::Mat img);
 
 public:
 
+	bool HSVDynamicFlag = false; // 是否使用HSV动态过滤
 	int size_x, size_y; // 图像尺寸
-	cv::Mat resizedImg, grayImg, binaryImg, originalImg, filteredImg, filteredBinaryImg; // 处理后的图像
+	cv::Mat originalImg; // 视频帧
 
 	static enum IMG_TYPE {
 		RESIZED_IMG = 0, // 缩放后的图像
 		GRAY_IMG,       // 灰度图像
 		BINARY_IMG,        // 二值图像
-		HSV_FILTERED_IMG // HSV过滤后的图像
+		HSV_FILTERED_IMG, // HSV过滤后的图像
+		HSV_FILTERED_BINARY_IMG, // HSV过滤后的二值图像
+		HSV_DYNAMIC_FILTERED_IMG, // HSV动态过滤后的图像
+		HSV_DYNAMIC_FILTERED_BINARY_IMG // HSV动态过滤后的二值图像
 	};
-
+	
 	ImgProcessor(const std::string path, const int size_x, const int size_y) : imgPath(path), size_x(size_x), size_y(size_y){
-		originalImg = cv::imread(imgPath); // 读取图片
-		resizedImg = preprocess_image();
-		grayImg = preprocess_image(GRAY_IMG);
-		binaryImg = preprocess_image(BINARY_IMG);
+		cv::imread(path, originalImg); // 读取图片
+	}
+	
+	ImgProcessor(const cv::Mat frame, const int size_x, const int size_y) : originalImg(frame), size_x(size_x), size_y(size_y) {
+		
 	}
 	~ImgProcessor() {}
 
@@ -58,6 +63,7 @@ public:
 		switch (type) {
 		case HSV_FILTERED_IMG: {
 			cv::Mat HSVImg;
+			cv::Mat resizedImg = preprocess_image(RESIZED_IMG); // 先缩放图像
 			cvtColor(resizedImg, HSVImg, cv::COLOR_BGR2HSV);//转换为HSV色彩空间
 			cv::Mat range_all; // 用于存储合并后的掩码
 			std::vector<cv::Mat> masks; // 创建一个掩码向量，大小与HSV范围数量相同
@@ -74,13 +80,32 @@ public:
 					cv::bitwise_or(range_all, masks[i], range_all); // 合并掩码
 				}
 			}
-
+			cv::Mat filteredImg;
 			cv::bitwise_and(resizedImg, resizedImg, filteredImg, range_all); // 应用掩码提取颜色区域
 			cv::cvtColor(filteredImg, filteredImg, cv::COLOR_BGR2GRAY); // 转换为灰度图像
-			//二值化
-			cv::threshold(filteredImg, filteredBinaryImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU); // Otsu's 二值化
-			return filteredBinaryImg; // 返回过滤后的图像
+			return filteredImg; // 返回过滤后的图像
 		}
+		case HSV_FILTERED_BINARY_IMG: {
+			cv::Mat filteredImg = preprocess_image(HSV_FILTERED_IMG, hsvRanges); // 先进行HSV过滤
+			cv::Mat binaryImg;
+			cv::threshold(filteredImg, binaryImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU); // Otsu's 二值化
+			return binaryImg; // 返回二值图像
+		}
+		case HSV_DYNAMIC_FILTERED_IMG: {
+			cv::Mat filteredImg = preprocess_image(HSV_FILTERED_IMG, hsvRanges); // 先进行HSV过滤
+			int Vlower = HSVDynamic(filteredImg); // 获得HSV亮度下限
+			std::vector<HSVRanges> hsvRangesCopy = hsvRanges; // 复制HSV范围
+			for (auto& range : hsvRangesCopy) {
+				range.lower[2] = Vlower; // 更新亮度下限
+			}
+			return preprocess_image(HSV_FILTERED_IMG, hsvRangesCopy); // 重新进行HSV过滤
+		}
+		case HSV_DYNAMIC_FILTERED_BINARY_IMG: {
+			cv::Mat filteredImg = preprocess_image(HSV_DYNAMIC_FILTERED_IMG, hsvRanges); // 先进行HSV动态过滤
+			cv::Mat binaryImg;
+			cv::threshold(filteredImg, binaryImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU); // Otsu's 二值化
+			return binaryImg; // 返回二值图像
+									 }
 		default:
 			std::cout << "未知类型！" << std::endl; 
 			return cv::Mat(); // 返回空矩阵
@@ -88,8 +113,7 @@ public:
 	}
 
 	cv::Mat preprocess_image(IMG_TYPE type) {
-		cv::Mat img = cv::imread(imgPath); // 读取图片
-		if (img.empty()) {
+		if (originalImg.empty()) {
 			std::cout << "图片加载失败！" << std::endl;
 			return cv::Mat();
 		}
@@ -121,7 +145,8 @@ public:
 		return preprocess_image(RESIZED_IMG); // 默认返回缩放后的图像
 	}
 
-	int HSVDynamic();
-
-};
+	void release() {
+		originalImg.release(); // 释放原始图像
+	}
+};		
 

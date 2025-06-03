@@ -30,4 +30,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\rmTest.jpg">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="Resources\rmTest1.jpg">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="Resources\rmTest.mp4" />
+  </ItemGroup>
 </Project>

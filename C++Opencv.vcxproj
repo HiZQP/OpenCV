@@ -112,7 +112,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);D:\opencv\build\x64\vc16\lib\opencv_world4110d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);D:\opencv\build\x64\vc16\lib\opencv_world4110d.lib;D:\opencv\build\x64\vc16\lib\opencv_world4110.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,6 +142,9 @@
   <ItemGroup>
     <Image Include="Resources\rmTest.jpg" />
     <Image Include="Resources\rmTest1.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="Resources\rmTest.mp4" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

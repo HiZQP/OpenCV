@@ -100,8 +100,11 @@ void find_target(Mat& resizedImg, Mat& binaryImg, vector<Point>& targets) {
 			// 计算两个轮廓平均高度
 			double averageHeight = (boundingBox1.height + boundingBox2.height) / 2.0;
 			double minDistance = averageHeight * 1.2;
-            double maxDistance = minDistance * 1.2;
-            if (distance > minDistance && distance < maxDistance && abs(center1.y - center2.y) < averageHeight / 5) {
+            double maxDistance = averageHeight * 2.4;
+			double minHeight = averageHeight * 0.5; // 最小高度差
+			double heightDifference = abs(boundingBox1.height - boundingBox2.height);
+			// 目标筛选在这里进行
+            if (distance > minDistance && distance < maxDistance && abs(center1.y - center2.y) < averageHeight / 1.2 && heightDifference < averageHeight) {
                 line(resizedImg, center1, center2, Scalar(255, 0, 0), 2, LINE_AA); // 绘制连接线
 				int size = 10; // 十字线长度
 				Point target((center1.x + center2.x) / 2, (center1.y + center2.y) / 2);
@@ -125,33 +128,60 @@ void front_sight(Mat& resizedImg,vector<Point> targets) {
 }
 
 int main() {
-
+    /*
     // 预处理图像
     //(图片路径输入，缩放尺寸x输入，缩放尺寸y输入 )
-	ImgProcessor preprocessor1("Resources/rmTest1.jpg", 500, 500);
-    Mat grayImg = preprocessor1.grayImg;
-    Mat resizedImg = preprocessor1.resizedImg;
-    Mat binaryImg = preprocessor1.binaryImg;
-
+	ImgProcessor preprocessor1("Resources/rmTest.jpg", 500, 500);
+    ImgProcessor preprocessor2("Resources/rmTest1.jpg", 500, 500);
+    
 	// 目前发现HSV亮度下限与图片整体亮度相关，用函数将两者拟合可以提高颜色过滤的准确性
-	// preprocessor1.HSVDynamic(preprocessor1); // 动态计算HSV亮度下限
-    HSVRanges redRange1(Scalar(0, 0, 200), Scalar(20, 255, 255)); // 定义红色HSV范围
-    HSVRanges redRange2(Scalar(170, 0, 200), Scalar(180, 255, 255));
-
-    HSVRanges blueRange(Scalar(80, 0, 0), Scalar(180, 45, 255)); // 定义蓝色HSV范围
+    HSVRanges redRange1(Scalar(0, 40, 0), Scalar(80, 255, 255)); // 定义红色HSV范围
+    HSVRanges redRange2(Scalar(170, 40, 0), Scalar(180, 255, 255));
 	vector<HSVRanges> redRanges = { redRange1, redRange2 }; // 将红色范围放入向量中
-	preprocessor1.preprocess_image(ImgProcessor::HSV_FILTERED_IMG, redRanges); // 使用HSV过滤函数
 
-    vector<Point> targets;
-    find_target(resizedImg, preprocessor1.filteredBinaryImg, targets); // 查找目标并绘制
-	front_sight(resizedImg, targets); // 绘制准星
-	//imwrite("Output/processedImage.jpg", resizedImg); // 保存处理后的图像
+    vector<Point> targets1, targets2;
+	Mat hsv_dynamic_filtered_binary_Img1 = preprocessor1.preprocess_image(ImgProcessor::HSV_DYNAMIC_FILTERED_BINARY_IMG, redRanges); // 使用HSV过滤函数
+	Mat hsv_dynamic_filtered_binary_Img2 = preprocessor2.preprocess_image(ImgProcessor::HSV_DYNAMIC_FILTERED_BINARY_IMG, redRanges); // 使用HSV过滤函数
+    find_target(preprocessor1.resizedImg, hsv_dynamic_filtered_binary_Img1, targets1); // 查找目标并绘制
+	find_target(preprocessor2.resizedImg, hsv_dynamic_filtered_binary_Img2, targets2); // 查找目标并绘制
+	front_sight(preprocessor1.resizedImg, targets1); // 绘制准星
+    front_sight(preprocessor2.resizedImg, targets2); // 绘制准星
     
     //显示图片
-    display_info(resizedImg);
-	imshow("originalImage", resizedImg);
-	imshow("binaryImage", binaryImg);
-	imshow("redFilteredImage", preprocessor1.filteredBinaryImg); // 显示红色过滤后的图像
+    //display_info(preprocessor1.resizedImg);
+	imshow("originalImage1", preprocessor1.resizedImg);
+	imshow("redFilteredImage1", hsv_dynamic_filtered_binary_Img1); // 显示红色过滤后的图像
+    
+    //display_info(preprocessor2.resizedImg);
+    imshow("originalImage2", preprocessor2.resizedImg);
+    imshow("redFilteredImage2", hsv_dynamic_filtered_binary_Img2); // 显示红色过滤后的图像
+    */
+        
+    VideoCapture cap("Resources/rmTest.mp4");
+	Mat frame;
+    if (!cap.isOpened()) {
+        cerr << "Error: Could not open video file." << endl;
+        return -1;
+	}
+    while (true) {
+        cap >> frame; // 从视频中读取一帧
+        if (frame.empty()) break; // 如果没有更多帧，退出循环
+        HSVRanges redRange1(Scalar(0, 40, 0), Scalar(40, 255, 255)); // 定义红色HSV范围
+        HSVRanges redRange2(Scalar(170, 40, 0), Scalar(180, 255, 255));
+        vector<HSVRanges> redRanges = { redRange1, redRange2 }; // 将红色范围放入向量中
+		ImgProcessor preprocessor(frame, 500, 300); // 创建ImgProcessor对象
+		vector<Point> targets; // 存储目标点的向量
+		Mat hsv_dynamic_filtered_binary_Img = preprocessor.preprocess_image(ImgProcessor::HSV_DYNAMIC_FILTERED_BINARY_IMG, redRanges); // 使用HSV过滤函数
+		Mat resizedImg = preprocessor.preprocess_image(ImgProcessor::RESIZED_IMG); // 获取预处理后的图像
+		find_target(resizedImg, hsv_dynamic_filtered_binary_Img, targets); // 查找目标并绘制
+		front_sight(resizedImg, targets); // 绘制准星
+		// 显示处理后的图像
+		imshow("Video Frame", resizedImg); // 显示处理后的图像
+		preprocessor.release(); // 释放ImgProcessor对象
+        if (waitKey(30) == 27) break; // 等待30毫秒或按键事件
+	}
+	cap.release(); // 释放视频捕捉对象
+	destroyAllWindows(); // 销毁所有窗口
     waitKey(0);  // 按任意键关闭窗口
 
     return 0;
