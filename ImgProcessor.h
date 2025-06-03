@@ -121,7 +121,7 @@ public:
 		return preprocess_image(RESIZED_IMG); // 默认返回缩放后的图像
 	}
 
-	int HSVDynamic(ImgProcessor IP);
+	int HSVDynamic();
 
 };
 
