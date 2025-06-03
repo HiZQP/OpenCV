@@ -29,10 +29,10 @@ class ImgProcessor {
 private:
 
 	std::string imgPath; // 图片路径
-	int size_x, size_y; // 图像尺寸
 
 public:
 
+	int size_x, size_y; // 图像尺寸
 	cv::Mat resizedImg, grayImg, binaryImg, originalImg, filteredImg, filteredBinaryImg; // 处理后的图像
 
 	static enum IMG_TYPE {
@@ -120,6 +120,8 @@ public:
 	cv::Mat preprocess_image() {
 		return preprocess_image(RESIZED_IMG); // 默认返回缩放后的图像
 	}
+
+	int HSVDynamic(ImgProcessor IP);
 
 };
 

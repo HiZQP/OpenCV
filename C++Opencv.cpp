@@ -134,6 +134,7 @@ int main() {
     Mat binaryImg = preprocessor1.binaryImg;
 
 	// 目前发现HSV亮度下限与图片整体亮度相关，用函数将两者拟合可以提高颜色过滤的准确性
+	// preprocessor1.HSVDynamic(preprocessor1); // 动态计算HSV亮度下限
     HSVRanges redRange1(Scalar(0, 0, 200), Scalar(20, 255, 255)); // 定义红色HSV范围
     HSVRanges redRange2(Scalar(170, 0, 200), Scalar(180, 255, 255));
 
